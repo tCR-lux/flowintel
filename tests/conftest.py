@@ -4,12 +4,22 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from sqlalchemy import event
+from sqlalchemy import select as sa_select
+from sqlalchemy import func as sa_func
 
 import pytest
 
 
 sys.path.append(os.getcwd())
+
+
+def _row_counts(app) -> dict:
+    from app import db
+    with db.engine.connect() as c:
+        return {
+            t.name: c.execute(sa_select(sa_func.count()).select_from(t)).scalar_one()
+            for t in db.metadata.sorted_tables
+        }
 
 
 def _worker_id() -> str:
@@ -52,31 +62,38 @@ def pytest_configure(config):
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def app():
     """
-    Provide a Flask app for each test.
+    Provides a Flask app for each test.
     - Ensures testing config flags.
-    - Does NOT recreate schema (done in setup_database).
+    - Recreate full database on each test.
     """
     # This imports lands after the initialisation code above because build_db_uri() in config.py reads the env var at app-creation time 
     from app import create_app, db
     from app.utils.log_paths import resolve_log_file_path
     from app.utils.init_db import create_user_test
 
-    database_name = _db_name()
-    assert "_test_" in database_name, "Tests must never touch a real DB"
-    
+    assert "_test_" in _db_name(), "Tests must never touch a real DB"
+
     # kept as a protection against potential previous crashes or during mid-test
     db_file = db_file_path()
     db_file.parent.mkdir(parents=True, exist_ok=True)
     if db_file.exists():
         db_file.unlink()
 
+    # Own the env var here: set before create_app, restore after   
+    os.environ["FLOWINTEL_APP_ENV"] = "testing"
 
-    # Own the env var here: set before create_app, restore after
-    old_db_name = os.environ.get("DB_NAME")
-    os.environ["DB_NAME"] = database_name
+    # --- Worker isolation fix -------------------------------------------
+    # worker_id is provided by pytest-xdist: "master" when run without -n,
+    # otherwise "gw0", "gw1", ... one per parallel worker.
+    # We give each worker its own database/schema name so concurrent
+    # drop_all()/create_all() calls never collide across workers.
+    # Adjust the env var name to whatever your build_db_uri()/config
+    # actually reads for the DB name (e.g. FLOWINTEL_DB_NAME, DB_NAME...).
+    os.environ["DB_NAME"] = _db_name()
+    # ----------------------------------------------------------------------
 
     app = create_app()
     app.config.update({
@@ -86,11 +103,14 @@ def app():
         "ENFORCE_PRIVILEGED_CASE": False
     })
 
-    # Set FLOWINTEL_TEST_LOG=1 to write audit logs to logs/record.log during tests.
+    # Set FLO8WINTEL_TEST_LOG=1 to write audit logs to logs/record.log during tests.
+    file_handler = None
     if os.environ.get("FLOWINTEL_TEST_LOG") == "1":
         logs_folder = os.path.join(os.getcwd(), "logs")
         os.makedirs(logs_folder, exist_ok=True)
-        log_file = app.config.get("LOG_FILE", "record.log")
+        # Namespace the log file per worker too, so parallel runs don't
+        # interleave writes into the same RotatingFileHandler.
+        log_file = f"test_record_{_worker_id()}.log"
         file_handler = RotatingFileHandler(
             resolve_log_file_path(log_file, logs_folder),
             mode="a",
@@ -105,50 +125,49 @@ def app():
         logging.getLogger().setLevel(logging.INFO)
 
     with app.app_context():
+        db.drop_all()
         db.create_all()
         create_user_test()
-        yield app
+        before = _row_counts(app)
+
+    yield app
+    
+    # Cleanup after test
+    with app.app_context():
+        during = _row_counts(app)
+
+        diff = {t: (before[t], during[t]) for t in during if during[t] != before.get(t)}
+        logging.getLogger(__name__).info(
+                f"DB rows written during test: {diff}",
+        )
+        
         db.session.remove()
-        # Rollback all changes from this test
         db.drop_all()
         db.engine.dispose()
-    
-    # restore env after the session
-    if old_db_name is None:
-        os.environ.pop("DB_NAME", None)
-    else:
-        os.environ["DB_NAME"] = old_db_name
+
+
+@pytest.fixture(autouse=True)
+def _log_test_id(request):
+    """Log test ID / node ID at test start."""
+    nodeid = request.node.nodeid          # e.g. "tests/case/test_case_admin.py::test_create_case"
+    test_id = request.node.name           # e.g. "test_create_case"
+
+    logging.getLogger(__name__).info(
+        f"Starting test: nodeid=%s, test_id=%s", nodeid, test_id,
+    )
+
+    yield
+
+    logging.getLogger(__name__).info(
+        f"Finished test: nodeid=%s, test_id=%s", nodeid, test_id,
+    )
 
 
 @pytest.fixture()
-def db_session(app):
-    """Per-test isolation: roll back everything the test wrote."""
-    from app import db
-
-    with app.app_context():
-        connection = db.engine.connect()
-        transaction = connection.begin()
-        
-        # Patch with recommended pattern https://github.com/pallets-eco/flask-sqlalchemy/discussions/1179
-        original_engines = dict(db.engines)
-        db.engines.update({key: connection for key in original_engines})
-
-        db.session.remove()  # force FSA to build a session against the patched engine
-
-        yield db.session
-
-        db.session.remove()
-        db.engines.clear()
-        db.engines.update(original_engines)
-        transaction.rollback()
-        connection.close()
-
-
-@pytest.fixture()
-def client(app, db_session):
+def client(app):
     return app.test_client()
 
 
 @pytest.fixture()
-def runner(app, db_session):
+def runner(app):
     return app.test_cli_runner()
