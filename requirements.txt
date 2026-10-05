@@ -439,6 +439,8 @@ pytest-cov==7.1.0
     # via -r requirements.in
 pytest-xdist==3.8.0
     # via -r requirements.in
+pytest-randomly==5.0.0
+    # via -r requirements.in
 python-dateutil==2.9.0.post0
     # via
     #   -r requirements.in

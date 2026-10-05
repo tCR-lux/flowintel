@@ -24,6 +24,7 @@ PyMySQL
 pytest
 pytest-cov
 pytest-xdist
+pytest-randomly
 pytaxonomies
 redis
 requests

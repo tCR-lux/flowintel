@@ -157,6 +157,7 @@ function test {
     set +e
     # worth noting that now we try to use coverage, with the src pattern it would much clear to cover
     python3 -m pytest -n 0 \
+        -p no:randomly \
         --cov=./app \
         --cov-report=term-missing \
         --durations=0
@@ -188,6 +189,7 @@ function test_parallel {
     set +e
     # worth noting that now we try to use coverage, with the src pattern it would much clear to cover
     python3 -m pytest -n 4 \
+        -p no:randomly \
 		--cov=./app \
         --cov-report=term-missing \
         --dist loadfile \
