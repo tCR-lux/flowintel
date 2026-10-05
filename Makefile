@@ -366,6 +366,9 @@ test: first_install
 test_new: first_install
 	VENV_DIR=".venv" FLOWINTEL_TEST_LOG=1 ./launch.sh -tn
 
+test_new_non_random: first_install
+	VENV_DIR=".venv" FLOWINTEL_TEST_LOG=1 ./launch.sh -tnnr
+
 test_parallel: first_install
 	VENV_DIR=".venv" FLOWINTEL_TEST_LOG=1 ./launch.sh -tp
 

@@ -329,6 +329,37 @@ function test_new_stress {
 }
 
 
+function test_new_non_random {
+    prepare_app_run
+    export FLOWINTEL_APP_ENV="testing"
+    export HISTORY_DIR="$history_dir/newnonrandomhistory_test"
+    export PYTEST_XDIST_WORKER_DB_PREFIX=newnonrandomflowintel_test_
+    
+    # worth noting that now we try to use coverage, with the src pattern it would much clear to cover
+    set +e
+    python3 -m pytest -n 0 \
+        -p no:randomly \
+        --cov=./app \
+        --cov-report=term-missing \
+        --durations=0 \
+        --noconftest -p tests.conftest_new
+    pytest_exit_code=$?
+    set -e
+
+    # Clean up only on success
+    if [ $pytest_exit_code -eq 0 ]; then
+        rm -rf "$HISTORY_DIR"
+        rm -f instance/newnonrandomflowintel_test_*
+    else
+        echo "[WARN] Tests failed ($pytest_exit_code). History preserved in $HISTORY_DIR for debugging" >&2
+        echo "[WARN] Test databases preserved for inspection:" >&2
+        ls -lh instance/newnonrandomflowintel_test_* 2>/dev/null || true
+    fi
+    
+    return $pytest_exit_code
+}
+
+
 function test_new_parallel {
     prepare_app_run
     export FLOWINTEL_APP_ENV="testing"
@@ -531,9 +562,10 @@ if [ "$1" ]; then
         -ip | --init_db_prod )          init_db_prod;;
         -r | --reload_db )              reload_db;;
         -p | --production )             production;;
-        -tn | --test-new )           test_new;;
-        -tns | --test-new-stress )   test_new_stress;;
-        -tnp | --test-new-parallel ) test_new_parallel;;
+        -tn | --test-new )              test_new;;
+        -tnnr | --test-new-non-random ) test_new_non_random;;
+        -tns | --test-new-stress )      test_new_stress;;
+        -tnp | --test-new-parallel )    test_new_parallel;;
         -t | --test )                   test;;
         -tp | --test-parallel )         test_parallel;;
         -ks | --killscript )            killscript;;

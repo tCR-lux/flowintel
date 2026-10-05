@@ -23,17 +23,17 @@ jobs:
         git submodule init && git submodule update
 
 ####
-    - name: New Test Stress - Sequential
-      run: |
-        ./launch.sh -tns
-
-    - name: Upload debug logs (New Test Stress - Sequential)
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-logs-newstress-sequential-${{ github.run_id }}
-        path: tests_master.log
-        if-no-files-found: ignore
+#    - name: New Test Stress - Sequential
+#      run: |
+#        ./launch.sh -tns
+#
+#    - name: Upload debug logs (New Test Stress - Sequential)
+#      if: always()
+#      uses: actions/upload-artifact@v4
+#      with:
+#        name: test-logs-newstress-sequential-${{ github.run_id }}
+#        path: tests_master.log
+#        if-no-files-found: ignore
 ####
     - name: New Test - Parallel
       run: |
@@ -56,6 +56,18 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: test-logs-new-sequential-${{ github.run_id }}
+        path: tests_master.log
+        if-no-files-found: ignore
+
+    - name: New Test - Sequential (Non Random)
+      run: |
+        ./launch.sh -tnnr
+
+    - name: Upload debug logs (New Test - Sequential - Non Random)
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-logs-new-sequential-non-random-${{ github.run_id }}
         path: tests_master.log
         if-no-files-found: ignore
 ####
