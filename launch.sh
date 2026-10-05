@@ -306,6 +306,29 @@ function test_new {
 }
 
 
+function test_new_stress {
+    prepare_app_run
+    export FLOWINTEL_APP_ENV="testing"
+    export HISTORY_DIR="$history_dir/newstresshistory_test"
+    
+    # worth noting that now we try to use coverage, with the src pattern it would much clear to cover
+    set +e
+    for i in {1..100};do
+      echo "=== Run $i ==="
+      python3 -m pytest -n 0 \
+          --cov=./app \
+          --cov-report=term-missing \
+          --durations=0 \
+          --noconftest -p tests.conftest_new | grep " passed in "
+    done
+    set -e
+
+    # Always clean up
+    rm -rf "$HISTORY_DIR"
+    rm -f instance/newstressflowintel_test_*
+}
+
+
 function test_new_parallel {
     prepare_app_run
     export FLOWINTEL_APP_ENV="testing"
@@ -509,6 +532,7 @@ if [ "$1" ]; then
         -r | --reload_db )              reload_db;;
         -p | --production )             production;;
         -tn | --test-new )           test_new;;
+        -tns | --test-new-stress )   test_new_stress;;
         -tnp | --test-new-parallel ) test_new_parallel;;
         -t | --test )                   test;;
         -tp | --test-parallel )         test_parallel;;
