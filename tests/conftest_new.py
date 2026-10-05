@@ -211,13 +211,17 @@ def db_session(app):
             
             # Always roll back, even if the transaction looks inactive
             try:
-                logging.getLogger(__name__).info(
-                    "Before rollback: %s", _row_counts(app)
-                )
+                # Kept this debug line for legacy on verbose debug, but normally outputting the situation before test
+                # and the diff is enough
+                #logging.getLogger(__name__).info(
+                #    "Before rollback: %s", _row_counts(app)
+                #)
                 transaction.rollback()
-                logging.getLogger(__name__).info(
-                    "After rollback: %s", _row_counts(app)
-                )
+                # Kept this debug line for legacy on verbose debug, but normally outputting the situation before test
+                # and the diff is enough
+                #logging.getLogger(__name__).info(
+                #    "After rollback: %s", _row_counts(app)
+                #)
             except Exception:
                 # Don’t let a failed rollback hide the real test result
                 logging.getLogger(__name__).exception("Rollback failed in db_session")

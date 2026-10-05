@@ -129,6 +129,9 @@ def app():
         db.create_all()
         create_user_test()
         before = _row_counts(app)
+        logging.getLogger(__name__).info(
+            "Before runing test: %s", before
+        )
 
     yield app
     
