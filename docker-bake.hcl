@@ -1,4 +1,6 @@
 # docker-bake.hcl
+variable "VERSION"   { default = "dev" }
+variable "GIT_SHORT" { default = "dev" }
 variable "BASE_IMAGE" { default = "ubuntu:noble" }
 variable "NODE_VER" { default = "24.21.0" }
 variable "PANDOC_VER" { default = "3.7.0.2" }
@@ -7,6 +9,17 @@ variable "PANDOC_PATCH" { default = "1" }
 # variable "EISVOGEL_VER" { default = "3.5.0" }
 
 target "flowintel" {
+  context    = "."
+  dockerfile = "Dockerfile"
+  tags = [
+    "flowintel:latest",
+    "flowintel:${VERSION}",
+    "flowintel:${GIT_SHORT}",
+  ]
+  labels = {
+    "org.opencontainers.image.version"  = VERSION
+    "org.opencontainers.image.revision" = GIT_SHORT
+  }
   args = {
     BASE_IMAGE = BASE_IMAGE
     NODE_VER = NODE_VER

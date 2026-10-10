@@ -40,6 +40,9 @@ UV_VERSION :=
 UV ?= uv
 export UV_PROJECT_ENVIRONMENT := $(CURDIR)/.venv
 
+VERSION_FILE ?= version
+VERSION := $(strip $(shell cat $(VERSION_FILE) 2>/dev/null))
+
 ########################################################################################
 # PREAMBLE - OS AND DEPENDENCY CHECKS
 ########################################################################################
@@ -384,7 +387,8 @@ ifeq ($(rebuild),1)
 	set -a; \
 	source .env.build; \
 	set +a; \
-	docker buildx bake -f docker-bake.hcl flowintel
+	GIT_SHORT=$$(git rev-parse --short HEAD) VERSION=$(VERSION) docker buildx bake -f docker-bake.hcl flowintel --load flowintel; \
+	docker image inspect flowintel:latest >/dev/null; \
 # Legacy
 #	docker build \
 #		--build-arg BASE_IMAGE="${base_image}" \
