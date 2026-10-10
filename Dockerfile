@@ -95,6 +95,7 @@ RUN set -eux \
     && ${VIRTUAL_ENV}/bin/python3 -m pip install --upgrade pip \
     && ${VIRTUAL_ENV}/bin/python3 -m pip install \
         --no-cache-dir \
+        --no-deps \
         -r /tmp/requirements.txt;
 
 # ---------- Stage 4: Download other external packages ----------
