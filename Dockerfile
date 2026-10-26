@@ -176,6 +176,7 @@ RUN set -eux \
 
 WORKDIR /home/flowintel/app
 
+<<<<<<< HEAD
 # Copy Node + Mermaid from builder
 COPY --from=node-builder \
     /usr/local/bin/mmdc* \
@@ -186,6 +187,65 @@ COPY --from=node-builder /usr/local/lib/node_modules /usr/local/lib/node_modules
 
 # Copy Python3 venv from python-builder
 COPY --from=python-builder /opt/flowintel-venv /opt/flowintel-venv
+=======
+# Copy on top only files that affect dependency resolution
+COPY requirements.txt pyproject.toml /home/flowintel/app/
+
+## Keep the virtual env untouchable by the non privileged user
+# Install Python dependencies in a virtualenv
+RUN python3 -m venv /home/flowintel/venv
+ENV PATH="/home/flowintel/venv/bin:${PATH}"
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt --timeout 240 --no-deps
+
+# Switch to the non-root user
+USER flowintel
+
+## npm installed moved upper to optimize cache layers - check that there are no strong coupling with Python code updates !
+# Install pandoc Eisvogel template
+RUN <<EOF
+mkdir -p ~/.pandoc/templates
+cd ~/.pandoc/templates
+wget -q https://github.com/Wandmalfarbe/pandoc-latex-template/releases/latest/download/Eisvogel.tar.gz
+tar -xf Eisvogel.tar.gz
+cp Eisvogel-*/eisvogel.latex ~/.pandoc/templates
+rm -r Eisvogel.tar.gz Eisvogel-*
+EOF
+
+# Install Node + Mermaid tools
+RUN <<EOF
+wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+. ~/.profile
+nvm install node 20
+npm install --prefix $HOME mermaid-filter
+npm install --prefix $HOME @mermaid-js/mermaid-cli
+echo "export NVM_DIR=\"$NVM_DIR\"" >> ~/.bashrc
+echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"' >> ~/.bashrc
+echo "export PATH=\"\$PATH:$HOME/node_modules/.bin\"" >> ~/.bashrc
+EOF
+
+# We need again to be root, though not sure it is needed due to the chown done in the next steps !
+USER root
+
+# Copy app source later to optimize layer caching
+# TODO This can further be accelerated by using the src pattern for code location and adding separate copies of requirements
+# and other important folders / files from king directory
+COPY . /home/flowintel/app
+
+# Replace secret and update config
+RUN mkdir -p /home/flowintel/app
+
+# Set proper ownership
+RUN chown -R flowintel:flowintel /home/flowintel/app
+
+# Partial mitigation for diskcache PYSEC-2026-2447
+ENV DSPY_CACHEDIR=/home/flowintel/.dspy_cache
+RUN install -d -m 0700 -o flowintel -g flowintel "$DSPY_CACHEDIR"
+# End partial mitigation
+
+# We finally switch to the non-root user
+USER flowintel
+>>>>>>> provide-recipes-dev-lifecycle-with-uv
 
 # Proxy mmdc with proper puppeteer config
 RUN <<'EOF'

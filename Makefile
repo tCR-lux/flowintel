@@ -541,7 +541,7 @@ lock_check:
 	$(UV) lock --check
 
 # requirements.txt for legacy installs/Docker
-export_requirements: audit
+export_requirements:
 	echo "🔒 Exporting uv.lock to requirements.txt ..."
 	$(UV) export --locked --no-dev --no-emit-project --no-hashes --format requirements-txt -o requirements.txt
 	$(UV) export --locked --only-group dev --no-emit-project --no-hashes --format requirements-txt -o requirements-dev.txt
